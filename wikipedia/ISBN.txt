@@ -1,1 +1,16 @@
-Меѓународен стандарден книжен бројилиISBN(оданглиски:International Standard Book Number) — единствен[1][2]број накнигасо кој се препознава изданието, издавачот, како и земјата каде е печатена книгата. Кодот со 9 бројки го измислил Гордон Фостер, денес професор во пензија од Тринити Колеџот во Даблин,[3]за книжарниците и колекционерите во 1966 година.[4]Кодот со 10 бројки бил изработен од Меѓународната организација за стандардизација, а во 1970 година е објавен како меѓународен стандард ISO 2108.[4]Од 1 јануари 2007 година, ИСБН бројот содржи 13 бројки, формат кој се користи и во Македонија.[5]
+ISBN
+Изглед
+Меѓународен стандарден книжен број или ISBN (од англиски: International Standard Book Number) — единствен[1][2] број на книга со кој се препознава изданието, издавачот, како и земјата каде е печатена книгата. Кодот со 9 бројки го измислил Гордон Фостер, денес професор во пензија од Тринити Колеџот во Даблин,[3] за книжарниците и колекционерите во 1966 година.[4] Кодот со 10 бројки бил изработен од Меѓународната организација за стандардизација, а во 1970 година е објавен како меѓународен стандард ISO 2108.[4] Од 1 јануари 2007 година, ИСБН бројот содржи 13 бројки, формат кој се користи и во Македонија.[5]
+Поврзано
+[уреди | уреди извор]Наводи
+[уреди | уреди извор]- ↑ Occasionally, publishers erroneously assign an ISBN to more than one title — the first edition of The Ultimate Alphabet and The Ultimate Alphabet Workbook have the same ISBN, 0-8050-0076-3. Conversely, books are published with several ISBNs: A German, second-language edition of Emil und die Detektive has the ISBNs 87-23-90157-8 (Denmark), 0-8219-1069-8 (United States), 91-21-15628-X (Sweden), 0-85048-548-7 (England) and 3-12-675495-3 (Germany).
+- ↑ in some cases, books sold only as sets share ISBNs. For example the Vance Integral Edition used only 2 ISBNs for 44 books.
+- ↑ Gordon Fosters original 1966 report can be found at Informaticsdevelopmentinstitute.net Архивирано на 30 април 2011 г.
+- ↑ 4,0 4,1 See discussion of the history Архивирано на 8 јуни 2011 г. at isbn.org.
+- ↑ See Frequently Asked Questions about the new ISBN standard Архивирано на 10 јуни 2007 г. from ISO
+Надворешни врски
+[уреди | уреди извор]- ISO 2108:2005 at www.iso.org
+- How to find a book from Wikibooks
+- ISBN to EAN EAS EBS transition Архивирано на 19 февруари 2009 г. at isbn.org
+- Description of the ISBN to EAN upgrade process Архивирано на 8 април 2007 г. at bookweb.org
+- International ISBN Agency—coordinates and supervises the worldwide use of the ISBN system.
