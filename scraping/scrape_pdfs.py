@@ -1,120 +1,162 @@
+import asyncio
+import aiohttp
+import aiofiles
 import os
-import requests
 from bs4 import BeautifulSoup
+from urllib.parse import unquote
+
+IGNORED_EXTENSIONS = (
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".mp3",
+    ".mp4",
+    ".avi",
+    ".mov",
+    ".wav",
+    "ogg",
+    ".zip",
+    ".rar",
+    ".tar",
+    ".gz",
+    ".csv",
+    ".xlsx",
+)
+
+pdf_list = []
 
 
-def download_pdf(pdf_url, save_path, chunk_size=None):
+async def download_pdf_async(pdf_url, session, save_path, chunk_size=None):
     """
-    Download a PDF from the given URL and save it to the specified path.
+    Download a PDF asynchronously using aiohttp and write it to disk with
+    aiofiles.
 
-    Parameters:
-    -----------
-    pdf_url : str
-        The URL of the PDF file to download.
-    save_path : str
-        The local path where the PDF file will be saved.
-    chunk_size : int, optional
-        The size of the chunks to use for downloading. If None, the file
-        will be downloaded without chunking.
+    If `chunk_size` is not None, the file is downloaded in chunks.
+    Otherwise, it's read entirely into memory at once.
     """
     try:
-        response = requests.get(pdf_url, stream=True)
-        response.raise_for_status()  # Raise an error if the request failed
+        async with session.get(pdf_url) as response:
+            response.raise_for_status()
 
-        with open(save_path, "wb") as pdf_file:
             if chunk_size:
-                # Download in chunks
-                for chunk in response.iter_content(chunk_size=chunk_size):
-                    if chunk:  # Filter out keep-alive chunks
-                        pdf_file.write(chunk)
+                # Stream in chunks
+                async with aiofiles.open(save_path, "wb") as f:
+                    async for chunk in response.content.iter_chunked(
+                        chunk_size
+                    ):
+                        await f.write(chunk)
             else:
-                # Download the entire content at once
-                pdf_file.write(response.content)
+                # Download entire content at once
+                data = await response.read()
+                async with aiofiles.open(save_path, "wb") as f:
+                    await f.write(data)
 
         print(f"Downloaded: {save_path}")
     except Exception as e:
         print(f"Failed to download {pdf_url}: {e}")
 
 
-def fetch_pdfs_recursive(
+async def fetch_and_parse(session, url):
+    """Fetch the HTML content at `url` asynchronously and return a
+    BeautifulSoup object."""
+    async with session.get(url) as response:
+        response.raise_for_status()
+        text = await response.text()
+        return BeautifulSoup(text, "html.parser")
+
+
+async def fetch_pdfs(
     base_url,
+    url,
+    visited_urls,
+    session,
     output_dir,
-    current_url=None,
-    visited_urls=None,
-    pdf_chunk_size=None,
+    max_depth=None,
+    depth=0,
+    chunk_size=None,
 ):
     """
-    Recursively crawls a website to extract and download all PDF links.
-
-    Starting from the `base_url`, the function recursively visits all internal
-    links within the same domain, identifies PDF links, and downloads them to
-    the specified `output_dir`. It tracks visited URLs to avoid revisiting and
-    skips non-HTML content like audio files.
-
-    Parameters:
-    -----------
-    base_url : str
-        The starting URL to restrict crawling to the same domain.
-    output_dir : str
-        Directory to save downloaded PDFs; created if it does not exist.
-    current_url : str, optional
-        The current URL being processed (default: `base_url`).
-    visited_urls : set, optional
-        Set of visited URLs to prevent revisiting (default: empty set).
-    chunk_size : int, optional
-        The size of the chunks to use for downloading PDFs. If None, the file
-        will be downloaded without chunking.
+    Recursively crawl `url`:
+      - Download any .pdf found (chunked or not based on `chunk_size`).
+      - Recursively visit child links in the same domain.
     """
-    if current_url is None:
-        current_url = base_url
+    # Respect the max_depth if provided
+    if max_depth is not None and depth > max_depth:
+        return
 
-    if visited_urls is None:
-        visited_urls = set()
+    # Avoid revisiting the same page
+    if url in visited_urls:
+        return
+    visited_urls.add(url)
 
-    os.makedirs(output_dir, exist_ok=True)
-
-    print(f"Visiting: {current_url}")
-    visited_urls.add(current_url)
+    print(f"Visiting: {url}")
 
     try:
-        # Send a GET request to the current URL
-        response = requests.get(current_url)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
+        soup = await fetch_and_parse(session, url)
+        links = [a["href"] for a in soup.find_all("a", href=True)]
 
-        # Find all <a> tags with href attributes
-        links = soup.find_all("a", href=True)
-        filtered_links = [
-            link["href"] for link in links if "http" in link["href"]
-        ]
-        for link in filtered_links:
-            if link.endswith(".pdf"):
-                # If it's a PDF link download it
-                filename = link.split("/")[-1]
+        tasks = []
+        for link in links:
+            link_lower = link.lower()
 
-                print(f"Downloading: {filename}\n")
-                download_pdf(
-                    link, os.path.join(output_dir, filename), pdf_chunk_size
+            # Skip links containing ignored extensions
+            if any(ext in link_lower for ext in IGNORED_EXTENSIONS):
+                continue
+
+            # If it's a PDF link, download it
+            if ".pdf" in link_lower:
+                raw_filename = link.split("/")[-1].split("?")[0].split("#")[0]
+                decoded_filename = unquote(raw_filename)
+                save_path = os.path.join(output_dir, decoded_filename)
+                print("Downloading PDF: ", link)
+                tasks.append(
+                    download_pdf_async(link, session, save_path, chunk_size)
                 )
-            elif (
-                base_url in link
-                and link not in visited_urls
-                and "ogg" not in link
-            ):
-                # Skip ogg (audio files) since they slow down the process
-                fetch_pdfs_recursive(
-                    base_url=base_url,
-                    output_dir=output_dir,
-                    current_url=link,
-                    visited_urls=visited_urls,
-                    pdf_chunk_size=pdf_chunk_size,
+
+            # Otherwise, if it's in the same domain, recurse deeper
+            elif base_url in link:
+                tasks.append(
+                    fetch_pdfs(
+                        base_url,
+                        link,
+                        visited_urls,
+                        session,
+                        output_dir,
+                        max_depth=max_depth,
+                        depth=depth + 1,
+                        chunk_size=chunk_size,
+                    )
                 )
+
+        # Gather all download + sub-crawl tasks
+        await asyncio.gather(*tasks)
 
     except Exception as e:
-        print(f"Error while processing {current_url}: {e}")
+        print(f"Error processing {url}: {e}")
+
+
+async def main():
+    base_url = ""
+    output_dir = "./"
+    os.makedirs(output_dir, exist_ok=True)
+    visited_urls = set()
+
+    CHUNK_SIZE = None  # or None
+
+    async with aiohttp.ClientSession() as session:
+        await fetch_pdfs(
+            base_url=base_url,
+            url=base_url,
+            visited_urls=visited_urls,
+            session=session,
+            output_dir=output_dir,
+            max_depth=2,  # If you want to limit recursion depth
+            chunk_size=CHUNK_SIZE,
+        )
+
+    print("Crawling complete.")
 
 
 if __name__ == "__main__":
-    base_url = "https://indibib.feit.ukim.edu.mk"
-    output_dir = "../data/ukim_library"
-    fetch_pdfs_recursive(base_url, output_dir)
+    asyncio.run(main())
