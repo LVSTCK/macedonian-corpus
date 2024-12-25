@@ -4,7 +4,7 @@ import re
 import aiofiles
 import os
 from bs4 import BeautifulSoup
-from urllib.parse import unquote, urlparse, parse_qs
+from urllib.parse import unquote, urlparse, parse_qs, urljoin
 
 IGNORED_EXTENSIONS = (
     ".jpg",
@@ -70,7 +70,9 @@ async def download_pdf_async(pdf_url, session, save_dir, chunk_size=None):
 
             os.makedirs(save_dir, exist_ok=True)
             save_path = os.path.join(save_dir, filename)
-
+            if os.path.exists(save_path):
+                print(f"Already downloaded: {save_path}")
+                return
             # Download logic
             if chunk_size:
                 async with aiofiles.open(save_path, "wb") as f:
@@ -136,13 +138,15 @@ async def fetch_pdfs(
 
     try:
         soup = await fetch_and_parse(session, url)
-        # If soup is None, it wasn't HTML (likely a file), so we skip link
-        # extraction.
+        # If soup is None, it wasn't HTML (likely a file), so skip link
         if not soup:
             return
 
-        links = [a["href"] for a in soup.find_all("a", href=True)]
-
+        # Extract <a> tags. Convert relative links to absolute via urljoin
+        links = []
+        for a_tag in soup.find_all("a", href=True):
+            absolute_link = urljoin(url, a_tag["href"])
+            links.append(absolute_link)
         tasks = []
         for link in links:
             link_lower = link.lower()
@@ -151,8 +155,11 @@ async def fetch_pdfs(
             if any(ext in link_lower for ext in IGNORED_EXTENSIONS):
                 continue
 
-            # If it's a .pdf or something like 'download.php?id=...'
+            # If it's a .pdf or something like 'download.php'
             if ".pdf" in link_lower or "download.php" in link_lower:
+                if link in visited_urls:
+                    continue
+                visited_urls.add(link)
                 print("Downloading PDF: ", link)
                 tasks.append(
                     download_pdf_async(
@@ -189,7 +196,7 @@ async def main():
     os.makedirs(output_dir, exist_ok=True)
     visited_urls = set()
 
-    CHUNK_SIZE = None  # or None
+    CHUNK_SIZE = 4096  # or None
 
     async with aiohttp.ClientSession() as session:
         await fetch_pdfs(
