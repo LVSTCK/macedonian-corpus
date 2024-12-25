@@ -3,8 +3,22 @@ import aiohttp
 import re
 import aiofiles
 import os
+import logging
 from bs4 import BeautifulSoup
 from urllib.parse import unquote, urlparse, parse_qs, urljoin
+
+# -------------------- Configure Logging --------------------
+logger = logging.getLogger(__name__)
+logger.setLevel(
+    logging.DEBUG
+)  # Capture all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+# Console handler (shows INFO+ messages on console)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_format = logging.Formatter("[%(levelname)s] %(message)s")
+console_handler.setFormatter(console_format)
+logger.addHandler(console_handler)
 
 IGNORED_EXTENSIONS = (
     ".jpg",
@@ -45,10 +59,9 @@ async def download_pdf_async(pdf_url, session, save_dir, chunk_size=None):
             else:
                 # Parse from URL
                 parsed_url = urlparse(pdf_url)
-                # e.g. 'download.php?id=16'
                 fallback_name = os.path.basename(
                     parsed_url.path
-                )  # 'download.php'
+                )  # e.g. 'download.php'
                 fallback_name = unquote(fallback_name)
 
                 # If there's a query param like id=16, use that
@@ -70,9 +83,12 @@ async def download_pdf_async(pdf_url, session, save_dir, chunk_size=None):
 
             os.makedirs(save_dir, exist_ok=True)
             save_path = os.path.join(save_dir, filename)
+
+            # If we already have this file, skip
             if os.path.exists(save_path):
-                print(f"Already downloaded: {save_path}")
+                logger.info(f"Already downloaded: {save_path}")
                 return
+
             # Download logic
             if chunk_size:
                 async with aiofiles.open(save_path, "wb") as f:
@@ -85,9 +101,10 @@ async def download_pdf_async(pdf_url, session, save_dir, chunk_size=None):
                 async with aiofiles.open(save_path, "wb") as f:
                     await f.write(data)
 
-            print(f"Downloaded: {save_path}")
+            logger.info(f"Downloaded: {save_path}")
+
     except Exception as e:
-        print(f"Failed to download {pdf_url}: {e}")
+        logger.error(f"Failed to download {pdf_url}: {e}")
 
 
 async def fetch_and_parse(session, url):
@@ -103,12 +120,10 @@ async def fetch_and_parse(session, url):
         # Check the Content-Type to see if it's HTML
         content_type = response.headers.get("Content-Type", "").lower()
         if "text/html" in content_type:
-            # It's HTML, so parse it
             text = await response.text()
             return BeautifulSoup(text, "html.parser")
         else:
-            # It's not HTML (could be PDF, ZIP, etc.),
-            # so we skip parsing and return None
+            # Not HTML (could be PDF, ZIP, etc.)
             return None
 
 
@@ -134,11 +149,11 @@ async def fetch_pdfs(
         return
     visited_urls.add(url)
 
-    print(f"Visiting: {url}")
+    logger.info(f"Visiting: {url}")
 
     try:
         soup = await fetch_and_parse(session, url)
-        # If soup is None, it wasn't HTML (likely a file), so skip link
+        # If soup is None, it wasn't HTML (likely a file), so skip link parsing
         if not soup:
             return
 
@@ -147,6 +162,7 @@ async def fetch_pdfs(
         for a_tag in soup.find_all("a", href=True):
             absolute_link = urljoin(url, a_tag["href"])
             links.append(absolute_link)
+
         tasks = []
         for link in links:
             link_lower = link.lower()
@@ -157,18 +173,17 @@ async def fetch_pdfs(
 
             # If it's a .pdf or something like 'download.php'
             if ".pdf" in link_lower or "download.php" in link_lower:
-                if link in visited_urls:
-                    continue
-                visited_urls.add(link)
-                print("Downloading PDF: ", link)
-                tasks.append(
-                    download_pdf_async(
-                        pdf_url=link,
-                        session=session,
-                        save_dir=output_dir,
-                        chunk_size=chunk_size,
+                if link not in visited_urls:
+                    visited_urls.add(link)
+                    logger.info(f"Downloading PDF link: {link}")
+                    tasks.append(
+                        download_pdf_async(
+                            pdf_url=link,
+                            session=session,
+                            save_dir=output_dir,
+                            chunk_size=chunk_size,
+                        )
                     )
-                )
             # Otherwise, if it’s in the same domain, recurse deeper
             elif base_url in link:
                 tasks.append(
@@ -187,7 +202,7 @@ async def fetch_pdfs(
         await asyncio.gather(*tasks)
 
     except Exception as e:
-        print(f"Error processing {url}: {e}")
+        logger.error(f"Error processing {url}: {e}")
 
 
 async def main():
@@ -195,6 +210,17 @@ async def main():
     output_dir = "../data"
     os.makedirs(output_dir, exist_ok=True)
     visited_urls = set()
+
+    # --- Setup File Logger ---
+    log_file_path = os.path.join(output_dir, "scrape.log")
+    file_handler = logging.FileHandler(
+        log_file_path, mode="w", encoding="utf-8"
+    )
+    file_handler.setLevel(logging.DEBUG)  # log all levels to file
+    file_format = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    file_handler.setFormatter(file_format)
+    logger.addHandler(file_handler)
+    # ---------------------------------------------------------
 
     CHUNK_SIZE = 4096  # or None
 
@@ -209,7 +235,7 @@ async def main():
             chunk_size=CHUNK_SIZE,
         )
 
-    print("Crawling complete.")
+    logger.info("Crawling complete.")
 
 
 if __name__ == "__main__":
