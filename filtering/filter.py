@@ -18,7 +18,23 @@ from datatrove.pipeline.tokens import TokensCounter
 from datatrove.pipeline.dedup.minhash import MinhashConfig
 from datatrove.utils.hashing import HashConfig
 from datatrove.data import Document, DocumentsPipeline
+from datatrove.pipeline.filters.base_filter import BaseFilter
+from datatrove.data import Document
+from typing import Union
 import spacy
+
+CITATION_REGEX = re.compile(r"\[\d*]|\[edit]|\[citation needed]")
+END_PUNCTUATION = (".", "?", "!", '"', "'")
+ELLIPSIS = "..."
+POLICY_SUBSTRINGS = [
+    "terms of use",
+    "privacy policy",
+    "cookie policy",
+    "uses cookies",
+    "use of cookies",
+    "use cookies",
+]
+BULLET_CHARS = ("-", "•", "*", "‣", "·") 
 
 # -------------------------------------------------------------
 #  A) CHUNKING BLOCK
@@ -125,21 +141,177 @@ class ChunkerBlock(PipelineStep):
 #  B) MACEDONIAN LANGUAGE FILTER
 #   
 # -------------------------------------------------------------
-class NaiveMacedonianFilter(PipelineStep):
+class CustomMacedonianFilter(BaseFilter):
     """
-    A minimal example: we keep docs if > 40% of chars are in the Cyrillic range.
+    A custom filter merging:
+      - C4 rules: remove lines with "javascript", doc if "lorem ipsum" or curly brace,
+        skip lines that don't end with terminal punct, skip lines < 3 words, remove lines with any word >1000 chars,
+        skip lines containing policy keywords, etc.
+      - Additional: skip doc if "{" found, skip doc if line with "lorem ipsum"
+      - Gopher-like rules: 
+         * check alpha ratio: if fewer than 80% of words contain an alphabetic char, drop doc
+         * bullet ratio: if >90% lines start with a bullet, drop doc
+         * ellipsis ratio: if >30% lines end with "..."  => drop doc
+      - Optionally, a language check: skip doc if fastText LID is too low
     """
-    def __init__(self, min_ratio=0.4):
-        super().__init__()
-        self.min_ratio = min_ratio
 
-    def run(self, data: DocumentsPipeline, rank=0, world_size=1):
-        for doc in data:
-            text = doc.text
-            cyr_chars = sum(1 for c in text if '\u0400' <= c <= '\u04FF')
-            ratio_cyr = cyr_chars / max(len(text), 1)
-            if ratio_cyr >= self.min_ratio:
-                yield doc
+    name = "Custom Macedonian Filter"
+
+    def __init__(
+        self,
+        exclusion_writer=None,
+        # C4-like settings
+        remove_citations: bool = True,
+        filter_no_terminal_punct: bool = True,
+        min_words_per_line: int = 3,
+        max_word_length: int = 1000,
+        filter_lorem_ipsum: bool = True,
+        filter_javascript: bool = True,
+        filter_curly_bracket: bool = True,
+        # Gopher-like settings
+        min_alpha_word_ratio: float = 0.80,  # 80% of words must have at least 1 alpha
+        bullet_start_ratio_threshold: float = 0.90,  # 90% lines start with bullet => drop doc
+        ellipsis_end_ratio_threshold: float = 0.30,  # 30% lines end with "..." => drop doc
+        # language check (optional)
+        do_language_check: bool = False,
+        language_threshold: float = 0.65,
+        languages: list[str] = None,  # e.g. ["mk"] for Macedonian
+    ):
+        super().__init__(exclusion_writer)
+        self.remove_citations = remove_citations
+        self.filter_no_terminal_punct = filter_no_terminal_punct
+        self.min_words_per_line = min_words_per_line
+        self.max_word_length = max_word_length
+        self.filter_lorem_ipsum = filter_lorem_ipsum
+        self.filter_javascript = filter_javascript
+        self.filter_curly_bracket = filter_curly_bracket
+
+        self.min_alpha_word_ratio = min_alpha_word_ratio
+        self.bullet_start_ratio_threshold = bullet_start_ratio_threshold
+        self.ellipsis_end_ratio_threshold = ellipsis_end_ratio_threshold
+
+        self.do_language_check = do_language_check
+        self.language_threshold = language_threshold
+        self.languages = languages
+
+        # If using fastText or glotLID or something else, initialize here
+        # e.g. self.lid_model = FT176LID(languages) or GlotLID(languages)
+        # For demo, we won't instantiate an actual model.
+        self.lid_model = None
+
+    def filter(self, doc: Document) -> Union[bool, tuple[bool, str]]:
+        text = doc.text
+        # ---- Language check ----
+        if self.do_language_check and self.lid_model is not None:
+            best_lang_pair, lang_pairs = self.lid_model.predict(doc)
+            lang, lang_score = best_lang_pair
+            doc.metadata["language"] = lang
+            doc.metadata["language_score"] = lang_score
+            if lang_score < self.language_threshold:
+                return False, f"lang_score<{self.language_threshold}"
+
+            if self.languages and lang not in self.languages:
+                return False, f"lang_not_in_{self.languages}"
+
+        # split text into lines (like C4) or sentences
+        lines = text.splitlines()
+        kept_lines = []
+        # counters for doc-level checks
+        total_lines = 0
+        bullet_starts = 0
+        ellipsis_ends = 0
+
+        for line in lines:
+            original_line = line
+            total_lines += 1
+            line = line.strip()
+
+            if not line:
+                self.stat_update("line-empty")
+                continue
+
+            # 1) any word too long?
+            if self.max_word_length != -1:
+                words = line.split()
+                if any(len(word) > self.max_word_length for word in words):
+                    self.stat_update("line-filter-too_long_word")
+                    continue
+
+            # 2) remove citations
+            if self.remove_citations:
+                line = CITATION_REGEX.sub("", line)
+
+            # 3) check end punctuation
+            if self.filter_no_terminal_punct and not line.endswith(END_PUNCTUATION):
+                # let's allow "..." if we want it considered terminal?
+                if not line.endswith(ELLIPSIS):
+                    self.stat_update("line-filter-no_terminal_punc")
+                    continue
+
+            # 4) min words
+            words = line.split()
+            if len(words) < self.min_words_per_line:
+                self.stat_update("line-filter-too_few_words")
+                continue
+
+            # 5) doc-level filters if present in line
+            line_lower = line.lower()
+            if self.filter_lorem_ipsum and "lorem ipsum" in line_lower:
+                return False, "lorem_ipsum"
+
+            if self.filter_javascript and "javascript" in line_lower:
+                self.stat_update("line-filter-javascript")
+                continue
+
+            if self.filter_curly_bracket and "{" in line:
+                return False, "curly_bracket"
+
+            # 6) cookies / policy substrings (line-level remove)
+            if any(p in line_lower for p in POLICY_SUBSTRINGS):
+                self.stat_update("line-filter-policy")
+                continue
+
+            # 7) track bullet / ellipsis
+            if line.startswith(BULLET_CHARS):
+                bullet_starts += 1
+            if line.endswith(ELLIPSIS):
+                ellipsis_ends += 1
+
+            # keep line
+            kept_lines.append(line)
+            self.stat_update("line-kept")
+
+        # after we gather all lines, if none left, remove doc
+        if not kept_lines:
+            return False, "all_lines_filtered"
+
+        # ---- Gopher-likes doc-level checks ----
+        # bullet ratio
+        if total_lines > 0:
+            bullet_ratio = bullet_starts / total_lines
+            if bullet_ratio > self.bullet_start_ratio_threshold:
+                return False, f"too_many_bullets({bullet_ratio:.2f})"
+
+            ellipsis_ratio = ellipsis_ends / total_lines
+            if ellipsis_ratio > self.ellipsis_end_ratio_threshold:
+                return False, f"too_many_ellipsis({ellipsis_ratio:.2f})"
+
+        # alpha ratio: we can do a quick doc-level check
+        all_words = " ".join(kept_lines).split()
+        if all_words:
+            n_words = len(all_words)
+            n_alpha_words = 0
+            for w in all_words:
+                # if any char is alpha => counts
+                if any(c.isalpha() for c in w):
+                    n_alpha_words += 1
+            alpha_ratio = n_alpha_words / n_words
+            if alpha_ratio < self.min_alpha_word_ratio:
+                return False, f"below_alpha_ratio({alpha_ratio:.2f})"
+
+        # Re-assemble the text from kept lines
+        doc.text = "\n".join(kept_lines)
+        return True
 
 
 # -------------------------------------------------------------
@@ -187,7 +359,7 @@ def build_pipeline(input_path: str, output_path: str):
     Builds a pipeline that:
      1) reads the JSONL from `input_path`
      2) chunk large docs
-     3) naive Macedonian filter
+     3) custom filter
      4) minhash signature
      5) bucket them
      6) cluster them
@@ -205,18 +377,31 @@ def build_pipeline(input_path: str, output_path: str):
     pipeline = [
         # 1) read from JSONL
         JsonlReader(
-            data_folder=input_path,  # could be "macedonian_corpus_raw.jsonl"
-            text_key="text",
-            id_key=None,  # we’ll let DataTrove auto-generate or we can keep them from the file
-            default_metadata={},  # might store e.g. { "source": "???" } if needed
+            data_folder=".",
+            glob_pattern="*.jsonl",
             compression=None,
+            text_key="text",
+            id_key=None
         ),
 
         # 2) chunk large docs
         ChunkerBlock(max_tokens=4096, sentence_overlap=0), # no need for overlap 
 
-        # 3) naive Macedonian filter
-        NaiveMacedonianFilter(min_ratio=0.5),
+        # 3) custom filter
+        CustomMacedonianFilter(
+            remove_citations=True,
+            filter_no_terminal_punct=False, # we allow "..." as terminal
+            min_words_per_line=3,
+            max_word_length=1000, # single word limit (sssssssss....)
+            filter_lorem_ipsum=True,
+            filter_javascript=True,
+            filter_curly_bracket=False, # we allow "{" in text 
+            min_alpha_word_ratio=0.80,
+            bullet_start_ratio_threshold=0.90,
+            ellipsis_end_ratio_threshold=0.30,
+            do_language_check=True,  # or True if you have a model
+            languages=["mk"],  # if you do do_language_check
+        ),
 
         # count tokens so we have stats pre-dedup
         TokensCounter(),
@@ -247,16 +432,10 @@ def build_pipeline(input_path: str, output_path: str):
 #  F) MAIN
 # -------------------------------------------------------------
 def main():
-    # point to your local input jsonl (or directory)
     input_path = "macedonian_corpus_raw.jsonl"
-    # define where we'll store intermediate stuff and final
-    output_path = "macedonian-cleaned-cleaned"
-
+    output_path = "macedonian-corpus-cleaned"
     pipeline = build_pipeline(input_path, output_path)
 
-    # For a big dataset, you may set tasks=100 or more, one per shard
-    # If your JSONL is a single file, tasks=1 might be simpler,
-    # or you might split that JSONL into multiple shards first.
     executor = LocalPipelineExecutor(
         pipeline=pipeline,
         tasks=1,  # or more if you have multiple files
@@ -265,7 +444,6 @@ def main():
         skip_completed=True,
     )
 
-    # This will run the entire pipeline locally
     executor.run()
     print(f"Done. Cleaned data is in: {output_path}/final/")
 
