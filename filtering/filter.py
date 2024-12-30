@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+""" To use this it is first advisable to split the .gz files into smaller chunks. """
+
 
 import re
 from datatrove.executor import LocalPipelineExecutor
@@ -19,9 +19,11 @@ from datatrove.pipeline.dedup.minhash import MinhashConfig
 from datatrove.utils.hashing import HashConfig
 from datatrove.data import Document, DocumentsPipeline
 from datatrove.pipeline.filters.base_filter import BaseFilter
-from datatrove.data import Document
+from datatrove.utils.lid import FT176LID, GlotLID, FastTextLID
 from typing import Union
 import spacy
+from tqdm import tqdm 
+import os 
 
 CITATION_REGEX = re.compile(r"\[\d*]|\[edit]|\[citation needed]")
 END_PUNCTUATION = (".", "?", "!", '"', "'")
@@ -35,6 +37,8 @@ POLICY_SUBSTRINGS = [
     "use cookies",
 ]
 BULLET_CHARS = ("-", "•", "*", "‣", "·") 
+NUM_FILES = len([name for name in os.listdir('split_data') if os.path.isfile(name)]) # number of .gz files in the split_data folder for parallel processing
+TOTAL_LINES = 9543129 # total number of lines in the raw dataset 
 
 # -------------------------------------------------------------
 #  A) CHUNKING BLOCK
@@ -64,11 +68,11 @@ class ChunkerBlock(PipelineStep):
         # However, note that in a multiprocessing environment,
         # you may want to re-load in each process if needed.
         self.nlp = spacy.load(self.spacy_model, disable=["ner", "parser"])
-        # or keep parser if you do want parse-based sentence segmentation
-        # just be mindful of speed
+        # sentencizer 
+        self.nlp.add_pipe("sentencizer")
 
     def run(self, data: DocumentsPipeline, rank=0, world_size=1):
-        for doc in data:
+        for doc in tqdm(data, desc="Chunking", total=TOTAL_LINES):
             text = doc.text
             # process with spaCy
             spacy_doc = self.nlp(text)
@@ -169,10 +173,10 @@ class CustomMacedonianFilter(BaseFilter):
         filter_javascript: bool = True,
         filter_curly_bracket: bool = True,
         # Gopher-like settings
-        min_alpha_word_ratio: float = 0.80,  # 80% of words must have at least 1 alpha
+        min_alpha_word_ratio: float = 0.80,  # 80% of words must have at least 1 alpha 💪
         bullet_start_ratio_threshold: float = 0.90,  # 90% lines start with bullet => drop doc
         ellipsis_end_ratio_threshold: float = 0.30,  # 30% lines end with "..." => drop doc
-        # language check (optional)
+        # language check
         do_language_check: bool = False,
         language_threshold: float = 0.65,
         languages: list[str] = None,  # e.g. ["mk"] for Macedonian
@@ -193,14 +197,12 @@ class CustomMacedonianFilter(BaseFilter):
         self.do_language_check = do_language_check
         self.language_threshold = language_threshold
         self.languages = languages
-
-        # If using fastText or glotLID or something else, initialize here
-        # e.g. self.lid_model = FT176LID(languages) or GlotLID(languages)
-        # For demo, we won't instantiate an actual model.
-        self.lid_model = None
+        
+        self.lid_model = GlotLID(languages = self.languages) # or FastTextLID() or FT176LID()
 
     def filter(self, doc: Document) -> Union[bool, tuple[bool, str]]:
         text = doc.text
+        
         # ---- Language check ----
         if self.do_language_check and self.lid_model is not None:
             best_lang_pair, lang_pairs = self.lid_model.predict(doc)
@@ -213,8 +215,11 @@ class CustomMacedonianFilter(BaseFilter):
             if self.languages and lang not in self.languages:
                 return False, f"lang_not_in_{self.languages}"
 
-        # split text into lines (like C4) or sentences
-        lines = text.splitlines()
+        # split text into lines (like C4); should this be split lines or sentences? 
+        lines = text.splitlines() 
+        ## split on sentence
+        # lines = [line.text for line in self.nlp(text).sents] 
+        
         kept_lines = []
         # counters for doc-level checks
         total_lines = 0
@@ -222,7 +227,6 @@ class CustomMacedonianFilter(BaseFilter):
         ellipsis_ends = 0
 
         for line in lines:
-            original_line = line
             total_lines += 1
             line = line.strip()
 
@@ -243,12 +247,12 @@ class CustomMacedonianFilter(BaseFilter):
 
             # 3) check end punctuation
             if self.filter_no_terminal_punct and not line.endswith(END_PUNCTUATION):
-                # let's allow "..." if we want it considered terminal?
+                # lets allow "..." if we want it considered terminal?
                 if not line.endswith(ELLIPSIS):
                     self.stat_update("line-filter-no_terminal_punc")
                     continue
 
-            # 4) min words
+            # 4) min words; if line has < 3 words, skip 
             words = line.split()
             if len(words) < self.min_words_per_line:
                 self.stat_update("line-filter-too_few_words")
@@ -263,8 +267,8 @@ class CustomMacedonianFilter(BaseFilter):
                 self.stat_update("line-filter-javascript")
                 continue
 
-            if self.filter_curly_bracket and "{" in line:
-                return False, "curly_bracket"
+            # if self.filter_curly_bracket and "{" in line:
+            #     return False, "curly_bracket"
 
             # 6) cookies / policy substrings (line-level remove)
             if any(p in line_lower for p in POLICY_SUBSTRINGS):
@@ -285,7 +289,7 @@ class CustomMacedonianFilter(BaseFilter):
         if not kept_lines:
             return False, "all_lines_filtered"
 
-        # ---- Gopher-likes doc-level checks ----
+        # ---- Gopher-like doc-level checks ----
         # bullet ratio
         if total_lines > 0:
             bullet_ratio = bullet_starts / total_lines
@@ -296,18 +300,18 @@ class CustomMacedonianFilter(BaseFilter):
             if ellipsis_ratio > self.ellipsis_end_ratio_threshold:
                 return False, f"too_many_ellipsis({ellipsis_ratio:.2f})"
 
-        # alpha ratio: we can do a quick doc-level check
-        all_words = " ".join(kept_lines).split()
-        if all_words:
-            n_words = len(all_words)
-            n_alpha_words = 0
-            for w in all_words:
-                # if any char is alpha => counts
-                if any(c.isalpha() for c in w):
-                    n_alpha_words += 1
-            alpha_ratio = n_alpha_words / n_words
-            if alpha_ratio < self.min_alpha_word_ratio:
-                return False, f"below_alpha_ratio({alpha_ratio:.2f})"
+        # # alpha ratio: we can do a quick doc-level check for alpha ratio 
+        # all_words = " ".join(kept_lines).split()
+        # if all_words:
+        #     n_words = len(all_words)
+        #     n_alpha_words = 0
+        #     for w in all_words:
+        #         # if any char is alpha => counts
+        #         if any(c.isalpha() for c in w):
+        #             n_alpha_words += 1
+        #     alpha_ratio = n_alpha_words / n_words
+        #     if alpha_ratio < self.min_alpha_word_ratio:
+        #         return False, f"below_alpha_ratio({alpha_ratio:.2f})"
 
         # Re-assemble the text from kept lines
         doc.text = "\n".join(kept_lines)
@@ -322,6 +326,9 @@ class KeepFineWebMinhashDedupFilter(MinhashDedupFilter):
     Extends MinhashDedupFilter so that if a cluster has
     a doc from 'fineweb-2', we keep that doc and remove the others.
     Otherwise, keep the first doc in the cluster.
+    
+    Note: This is after discussing with creators of fineweb-2 where they 
+    informed us that fineweb is the most reliable source. 
     """
 
     def _should_remove(self, doc, cluster_id):
@@ -364,7 +371,8 @@ def build_pipeline(input_path: str, output_path: str):
      5) bucket them
      6) cluster them
      7) custom dedup filter that keeps fineweb-2
-     8) writes out final data
+     8) PII formatter
+     9) writes out final data
     """
     # configure the minhash
     minhash_conf = MinhashConfig(
@@ -377,11 +385,10 @@ def build_pipeline(input_path: str, output_path: str):
     pipeline = [
         # 1) read from JSONL
         JsonlReader(
-            data_folder=".",
-            glob_pattern="*.jsonl",
-            compression=None,
+            data_folder=input_path,
             text_key="text",
-            id_key=None
+            id_key=None,
+            compression="gzip",
         ),
 
         # 2) chunk large docs
@@ -419,7 +426,10 @@ def build_pipeline(input_path: str, output_path: str):
         # 7) custom dedup filter that keeps fineweb-2 records
         KeepFineWebMinhashDedupFilter(input_folder=f"{output_path}/remove_ids"),
 
-        # 8) write final
+        # 8) PII formatter; remove emails, ips, etc.
+        PIIFormatter(),
+
+        # 9) write final
         JsonlWriter(
             output_folder=f"{output_path}/final",
             output_filename="${rank}.jsonl.gz",
@@ -432,16 +442,16 @@ def build_pipeline(input_path: str, output_path: str):
 #  F) MAIN
 # -------------------------------------------------------------
 def main():
-    input_path = "macedonian_corpus_raw.jsonl"
+    input_path = "split_data/"
     output_path = "macedonian-corpus-cleaned"
     pipeline = build_pipeline(input_path, output_path)
 
     executor = LocalPipelineExecutor(
         pipeline=pipeline,
-        tasks=1,  # or more if you have multiple files
-        workers=1,  # how many parallel CPU processes
+        tasks=NUM_FILES,  # or more if you have multiple files
+        workers=-1,  # how many parallel CPU processes; -1 for all 
         logging_dir=f"{output_path}/logs",
-        skip_completed=True,
+        # skip_completed=True,
     )
 
     executor.run()
