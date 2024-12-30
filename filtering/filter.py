@@ -24,7 +24,11 @@ import spacy
 from tqdm import tqdm 
 import os 
 import logging
+from nltk.tokenize import sent_tokenize
+import nltk
 
+nltk.download('punkt')
+nltk.download('punkt_tab')
 CITATION_REGEX = re.compile(r"\[\d*]|\[edit]|\[citation needed]")
 END_PUNCTUATION = (".", "?", "!", '"', "'")
 ELLIPSIS = "..."
@@ -52,114 +56,54 @@ def get_minhash_config():
 # -------------------------------------------------------------
 #  A) CHUNKING BLOCK
 # -------------------------------------------------------------
+
+
 class ChunkerBlock(PipelineStep):
     """
-    Uses spaCy to:
-      1) segment the doc into sentences
-      2) group consecutive sentences until we reach ~max_tokens
-      3) yield a new chunk whenever we exceed that token budget
-      4) optionally overlap chunk boundaries by `sentence_overlap`
-         sentences, which can be helpful for contexts that
-         rely on surrounding text
+    Chunk documents by grouping a fixed number of sentences together,
+    optionally allowing for some overlap of sentences between chunks.
     """
-    def __init__(
-        self,
-        spacy_model: str = "mk_core_news_lg",
-        max_tokens: int = 4096,
-        sentence_overlap: int = 0
-    ):
+
+    def __init__(self, sentences_per_chunk: int = 100, sentence_overlap: int = 0):
         super().__init__()
-        self.spacy_model = spacy_model
-        self.max_tokens = max_tokens
+        self.sentences_per_chunk = sentences_per_chunk
         self.sentence_overlap = sentence_overlap
-        self.nlp = spacy.load(self.spacy_model, disable=["ner", "parser"])
-        self.nlp.add_pipe("sentencizer")
-        self.nlp.max_length = 10_000_000 
 
     def run(self, data: DocumentsPipeline, rank=0, world_size=1):
-        # Enable GPU; It has to be within each process in a multiprocessing environment, otherwise it tries to pickle objects that reference the GPU... tldr error is thrown
-        spacy.prefer_gpu() 
-        if spacy.require_gpu():
-            print("GPU is enabled and ready.")
-        else:
-            print("Could not enable GPU. Check CUDA installation.")
-
         for doc in tqdm(data, desc="Chunking", total=TOTAL_LINES):
-            try: 
-                # if its not MMORE then skip 
+            try:
                 if doc.metadata.get("source") != "MMORE":
                     yield doc
                     continue
 
-                text = doc.text
-                # process with spaCy
-                spacy_doc = self.nlp(text)
-                # disable GPU
-                spacy.require_cpu()
-                # We'll store sentences as lists of tokens
-                # so we can easily count them for the chunk budget
-                sents_tokens = []
-                for sent in spacy_doc.sents:
-                    sent_tokens = [token.text for token in sent]
-                    sents_tokens.append(sent_tokens)
+                sentences = sent_tokenize(doc.text)
+                chunks = self._chunk_sentences(sentences)
 
-                # chunk them up
-                chunks = self._chunk_sents(
-                    sents_tokens,
-                    max_tokens=self.max_tokens,
-                    sentence_overlap=self.sentence_overlap,
-                )
-
-                # yield each chunk as a new doc
-                for i, chunk_tokens in enumerate(chunks):
-                    chunk_text = " ".join(chunk_tokens).strip()
+                for i, chunk_sentences in enumerate(chunks):
+                    chunk_text = " ".join(chunk_sentences).strip()
                     if chunk_text:
-                        new_doc_id = f"{doc.id}_spacychunk_{i}"
+                        new_doc_id = f"{doc.id}_chunk_{i}"
                         new_doc = Document(
                             text=chunk_text,
                             id=new_doc_id,
-                            metadata=dict(doc.metadata),  # copy original metadata
+                            metadata=dict(doc.metadata)
                         )
                         yield new_doc
             except Exception as e:
                 logging.error(f"Error processing doc {doc.id}: {e}")
 
-    def _chunk_sents(self, sents_tokens, max_tokens, sentence_overlap):
-        """
-        Group consecutive sentences until we exceed max_tokens,
-        then yield a chunk. If sentence_overlap>0, then each
-        new chunk will overlap the previous chunk by that many
-        sentences.
-        """
+    def _chunk_sentences(self, sentences):
         chunks = []
-        current_chunk = []
-        current_len = 0
-
-        for i, sent_toks in enumerate(sents_tokens):
-            sent_len = len(sent_toks)
-            if current_len + sent_len > max_tokens:
-                # yield current chunk
-                chunks.append([tok for toks in current_chunk for tok in toks])
-
-                # If overlap is specified, copy the last `sentence_overlap` sents
-                # to the next chunk. This can help preserve context across chunks.
-                if sentence_overlap > 0:
-                    overlap_slice = current_chunk[-sentence_overlap:]
-                    current_chunk = overlap_slice[:]
-                    current_len = sum(len(s) for s in current_chunk)
-                else:
-                    # start a fresh chunk
-                    current_chunk = []
-                    current_len = 0
-
-            current_chunk.append(sent_toks)
-            current_len += sent_len
-
-        # leftover
-        if current_chunk:
-            chunks.append([tok for toks in current_chunk for tok in toks])
+        i = 0
+        while i < len(sentences):
+            end_index = i + self.sentences_per_chunk
+            # Calculate the start index for the next chunk, considering overlap
+            next_start_index = end_index - self.sentence_overlap
+            chunks.append(sentences[i:end_index])
+            i = next_start_index
 
         return chunks
+
 
 
 # -------------------------------------------------------------
@@ -414,7 +358,7 @@ def build_stage1_pipeline(input_path: str, stage1_output: str):
             glob_pattern="*.gz",
         ),
         TokensCounter(),
-        ChunkerBlock(max_tokens=4096, sentence_overlap=0),
+        ChunkerBlock(),
         CustomMacedonianFilter(
             remove_citations=True,
             filter_no_terminal_punct=False,
