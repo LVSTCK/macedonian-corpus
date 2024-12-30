@@ -37,8 +37,9 @@ POLICY_SUBSTRINGS = [
     "use cookies",
 ]
 BULLET_CHARS = ("-", "•", "*", "‣", "·") 
-NUM_FILES = len([name for name in os.listdir('split_data') if os.path.isfile(name)]) # number of .gz files in the split_data folder for parallel processing
-TOTAL_LINES = 9543129 # total number of lines in the raw dataset 
+# number of .gz files in the split_data folder for parallel processing
+NUM_FILES = len(os.listdir('split_data/'))
+TOTAL_LINES = 100_000 # total number of lines in each .gz file
 
 # -------------------------------------------------------------
 #  A) CHUNKING BLOCK
@@ -389,6 +390,7 @@ def build_pipeline(input_path: str, output_path: str):
             text_key="text",
             id_key=None,
             compression="gzip",
+            glob_pattern="*.gz",
         ),
 
         # 2) chunk large docs
@@ -445,7 +447,6 @@ def main():
     input_path = "split_data/"
     output_path = "macedonian-corpus-cleaned"
     pipeline = build_pipeline(input_path, output_path)
-
     executor = LocalPipelineExecutor(
         pipeline=pipeline,
         tasks=NUM_FILES,  # or more if you have multiple files
