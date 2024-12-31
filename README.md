@@ -88,5 +88,20 @@ For more details, refer to the [HuggingFace README](https://huggingface.co/datas
    - Execute `filter.py` to produce the cleaned version of the dataset. Optionally, use `split_data/` for multiprocessing if handling large files. NOTE: Significant computational resources might be needed for this step, depending on number of workers and tasks chosen.  
    - You can modify the filtering according to your own needs (e.g. swap sentence deduplication with min hash deduplication). For more information see [datatrove](https://github.com/huggingface/datatrove). 
 
+## How to Contribute?
+You can contribute to the Macedonian corpus by:
+
+1. **Digitalize Books and Materials**:  
+   - Contribute by digitalizing books, documents, and other materials that are legally in the public domain. These digitalized materials can be used to expand the datasets.  
+   - Ensure that the materials you contribute comply with copyright laws and are explicitly permitted for public use.
+
+2. **Expand Data Collection**:  
+   - Share other forms of Macedonian-language text data, such as articles, essays, or transcripts, that can legally be used for training or evaluating language models.  
+
+3. **Encourage Institutional Participation**:  
+   - We hope this initiative inspires institutions in Macedonia, such as libraries, universities, and research centers, to take part in the digitalization of Macedonian-language materials.  
+   - The availability of such materials will enable the development of specialized software tailored to the needs of Macedonian speakers and researchers.
+
+
 ## 📝 TODO:
 - Add `requirements.txt`
