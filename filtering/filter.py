@@ -1,34 +1,26 @@
-""" To use this script it is first advisable to split the .gz files into smaller chunks. """
-
+""" To use this script it is first advisable to split the .jsonl files into smaller chunks for multiprocessing. """
 
 import re
+import os 
+import nltk
+
 from datatrove.executor import LocalPipelineExecutor
-from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.readers import JsonlReader
 from datatrove.pipeline.writers.jsonl import JsonlWriter
-from datatrove.pipeline.dedup import (
-    MinhashDedupSignature,
-    MinhashDedupBuckets,
-    MinhashDedupCluster,
-    MinhashDedupFilter,
-)
-from datatrove.pipeline.formatters import PIIFormatter
 from datatrove.pipeline.tokens import TokensCounter
-from datatrove.pipeline.dedup.minhash import MinhashConfig
-from datatrove.utils.hashing import HashConfig
-from datatrove.data import Document, DocumentsPipeline
+from datatrove.pipeline.dedup import SentenceDedupFilter, SentenceDedupSignature, SentenceFindDedups
+from datatrove.pipeline.dedup.sentence_dedup import SentDedupConfig
+from datatrove.executor.base import PipelineExecutor
+from datatrove.pipeline.formatters import PIIFormatter
+from datatrove.data import Document
 from datatrove.pipeline.filters.base_filter import BaseFilter
 from datatrove.utils.lid import FT176LID, GlotLID, FastTextLID
-from typing import Union
-import spacy
-from tqdm import tqdm 
-import os 
-import logging
 from nltk.tokenize import sent_tokenize
-import nltk
+from typing import Union
 
 nltk.download('punkt')
 nltk.download('punkt_tab')
+
 CITATION_REGEX = re.compile(r"\[\d*]|\[edit]|\[citation needed]")
 END_PUNCTUATION = (".", "?", "!", '"', "'")
 ELLIPSIS = "..."
@@ -41,70 +33,14 @@ POLICY_SUBSTRINGS = [
     "use cookies",
 ]
 BULLET_CHARS = ("-", "•", "*", "‣", "·") 
-# number of .gz files in the split_data folder for parallel processing
-TOTAL_LINES = 100_000 # total number of lines in each .gz file
 
-def get_minhash_config():
-    return MinhashConfig(
-        hash_config=HashConfig(hash_fc="sha1", precision=64),
-        num_buckets=16,  # Ensure this matches your cluster setup
-        hashes_per_bucket=8,
-        n_grams=5,
-    )
-
-
-# -------------------------------------------------------------
-#  A) CHUNKING BLOCK
-# -------------------------------------------------------------
-
-
-class ChunkerBlock(PipelineStep):
-    """
-    Chunk documents by grouping a fixed number of sentences together,
-    optionally allowing for some overlap of sentences between chunks.
-    """
-
-    def __init__(self, sentences_per_chunk: int = 100, sentence_overlap: int = 0):
-        super().__init__()
-        self.sentences_per_chunk = sentences_per_chunk
-        self.sentence_overlap = sentence_overlap
-
-    def run(self, data: DocumentsPipeline, rank=0, world_size=1):
-        for doc in tqdm(data, desc="Chunking", total=TOTAL_LINES):
-            try:
-                if doc.metadata.get("source") != "MMORE":
-                    yield doc
-                    continue
-
-                sentences = sent_tokenize(doc.text)
-                chunks = self._chunk_sentences(sentences)
-
-                for i, chunk_sentences in enumerate(chunks):
-                    chunk_text = " ".join(chunk_sentences).strip()
-                    if chunk_text:
-                        new_doc_id = f"{doc.id}_chunk_{i}"
-                        new_doc = Document(
-                            text=chunk_text,
-                            id=new_doc_id,
-                            metadata=dict(doc.metadata)
-                        )
-                        yield new_doc
-            except Exception as e:
-                logging.error(f"Error processing doc {doc.id}: {e}")
-
-    def _chunk_sentences(self, sentences):
-        chunks = []
-        i = 0
-        while i < len(sentences):
-            end_index = i + self.sentences_per_chunk
-            # Calculate the start index for the next chunk, considering overlap
-            next_start_index = end_index - self.sentence_overlap
-            chunks.append(sentences[i:end_index])
-            i = next_start_index
-
-        return chunks
-
-
+sent_dedup_config = SentDedupConfig(
+    n_sentences=3,
+    split_sentences=True,  # set to False to split on \n instead
+    only_dedup_in_index=True,
+    min_doc_words=20,
+)
+FINDER_WORKERS = 10  # this will speed up/parallelize step 2
 
 # -------------------------------------------------------------
 #  B) MACEDONIAN LANGUAGE FILTER
@@ -116,7 +52,7 @@ class CustomMacedonianFilter(BaseFilter):
       - C4 rules: remove lines with "javascript", doc if "lorem ipsum" or curly brace,
         skip lines that don't end with terminal punct, skip lines < 3 words, remove lines with any word >1000 chars,
         skip lines containing policy keywords, etc.
-      - Additional: skip doc if "{" found, skip doc if line with "lorem ipsum"
+      - Additional: skip doc if "{" found, skip doc if line with "lorem ipsum"; Not used in our pipeline.
       - Gopher-like rules: 
          * check alpha ratio: if fewer than 80% of words contain an alphabetic char, drop doc
          * bullet ratio: if >90% lines start with a bullet, drop doc
@@ -125,7 +61,6 @@ class CustomMacedonianFilter(BaseFilter):
     """
 
     name = "Custom Macedonian Filter"
-
     def __init__(
         self,
         exclusion_writer=None,
@@ -179,10 +114,10 @@ class CustomMacedonianFilter(BaseFilter):
             if lang_score < self.language_threshold:
                 return False, f"lang_score<{self.language_threshold}"
 
-        # split text into lines (like C4); should this be split lines or sentences? 
-        lines = text.splitlines() 
-        ## split on sentence if needed
-        # lines = [line.text for line in self.nlp(text).sents] 
+        ## split text into lines (like C4); should this be split lines or sentences? 
+        # lines = text.splitlines() 
+        ## split on sentence
+        lines = sent_tokenize(text)
         
         kept_lines = []
         # counters for doc-level checks
@@ -264,19 +199,19 @@ class CustomMacedonianFilter(BaseFilter):
             if ellipsis_ratio > self.ellipsis_end_ratio_threshold:
                 return False, f"too_many_ellipsis({ellipsis_ratio:.2f})"
 
-        ## Unused: I haven't tested this yet 
-        ## alpha ratio: we can do a quick doc-level check for alpha ratio 
-        # all_words = " ".join(kept_lines).split()
-        # if all_words:
-        #     n_words = len(all_words)
-        #     n_alpha_words = 0
-        #     for w in all_words:
-        #         # if any char is alpha => counts
-        #         if any(c.isalpha() for c in w):
-        #             n_alpha_words += 1
-        #     alpha_ratio = n_alpha_words / n_words
-        #     if alpha_ratio < self.min_alpha_word_ratio:
-        #         return False, f"below_alpha_ratio({alpha_ratio:.2f})"
+        ## TODO: I haven't tested this yet 
+        # alpha ratio: we can do a quick doc-level check for alpha ratio 
+        all_words = " ".join(kept_lines).split()
+        if all_words:
+            n_words = len(all_words)
+            n_alpha_words = 0
+            for w in all_words:
+                # if any char is alpha => counts
+                if any(c.isalpha() for c in w):
+                    n_alpha_words += 1
+            alpha_ratio = n_alpha_words / n_words
+            if alpha_ratio < self.min_alpha_word_ratio:
+                return False, f"below_alpha_ratio({alpha_ratio:.2f})"
 
         # Re-assemble the text from kept lines
         doc.text = "\n".join(kept_lines)
@@ -284,81 +219,63 @@ class CustomMacedonianFilter(BaseFilter):
 
 
 # -------------------------------------------------------------
-#  C) CUSTOM DEDUP FILTER THAT PRESERVES fineweb-2
-# -------------------------------------------------------------
-class KeepFineWebMinhashDedupFilter(MinhashDedupFilter):
-    """
-    Extends MinhashDedupFilter so that if a cluster has
-    a doc from 'fineweb-2', we keep that doc and remove the others.
-    Otherwise, keep the first doc in the cluster.
-    
-    NOTE: We do this explicity after discussing with creators of fineweb-2 where they 
-    informed us that fineweb is the most reliable source; hence, we want to keep it.
-    By most reliable: they have trained multiple models on HPLT vs fineweb-2 and found 
-    that training only on fineweb-2 yields the best results. HPLT and fineweb are both built from
-    CommonCrawl, so, we assume that there will be duplicates between them.
-    """
-
-    def _should_remove(self, doc, cluster_id):
-        # cluster docs
-        if cluster_id not in self.clusters_by_id:
-            return False  # no known cluster, keep
-
-        cluster_doc_ids = self.clusters_by_id[cluster_id]
-
-        # do we have a fineweb-2 doc?
-        fineweb_ids = []
-        for doc_id in cluster_doc_ids:
-            info = self.hash_info_by_doc.get(doc_id, {})
-            if info.get("source") == "fineweb-2":
-                fineweb_ids.append(doc_id)
-
-        if len(fineweb_ids) > 0:
-            # if there's at least one fineweb doc, keep it,
-            # remove everything else
-            if doc.metadata.get("source") == "fineweb-2":
-                return False  # keep
-            else:
-                return True  # remove
-        else:
-            # fallback to original minhash dedup logic:
-            # keep doc with smallest doc_id, remove others
-            first_doc_id = min(cluster_doc_ids)
-            return doc.id != first_doc_id
-
-# -------------------------------------------------------------
 #  E) BUILD THE PIPELINE
+
 # -------------------------------------------------------------
 """
 Builds a pipeline that:
     Stage 1)  
         reads the JSONL from `input_path`
         chunk large docs
-        custom filter
+        custom filter based on C4 and Gopher rules
 
-    Stage 2) minhash signature
-    Stage 3) bucket
-    Stage 4) cluster
-    Stage 5) custom dedup filter that aims to keep fineweb-2 in case of duplicates
+    Stage 2)
+        deduplication signature generation
     
-    Stage 6) 
-        PII formatter
-        writes out final data
+    Stage 3)
+        deduplication signature filtering
+        write output 
 
-    The output from Stage 1 is the input to Stage 2, and so on.
+    We are using sentence deduplication. Reference implementation: https://github.com/huggingface/datatrove/blob/main/examples/sentence_deduplication.py    
 """
 
-def build_stage1_pipeline(input_path: str, stage1_output: str):
-    pipeline = [
+
+# -------------------------------------------------------------
+#  F) MAIN
+
+# -------------------------------------------------------------
+def main():
+    input_path = "split_data/"
+    output_base = "macedonian-corpus-cleaned"
+    
+    # Define intermediate folders
+    stage1_output = os.path.join(output_base, "stage1")
+    signatures_output = os.path.join(output_base, "signatures")
+    dedup_output = os.path.join(output_base, "deduped")
+    final_output = os.path.join(output_base, "final")
+    
+    # Ensure output directories exist
+    os.makedirs(stage1_output, exist_ok=True)
+    os.makedirs(signatures_output, exist_ok=True)
+    os.makedirs(dedup_output, exist_ok=True)
+    os.makedirs(final_output, exist_ok=True)
+    
+    sent_dedup_config = SentDedupConfig(
+        n_sentences=3,
+        split_sentences=True,  # set to False to split on \n instead
+        only_dedup_in_index=True,
+        min_doc_words=20,
+    )
+
+    pipeline_1 = [
         JsonlReader(
             data_folder=input_path,
             text_key="text",
             id_key=None,
-            compression="gzip",
-            glob_pattern="*.gz",
+            glob_pattern="*.jsonl",
+            # limit=1000, # for debugging 
         ),
         TokensCounter(),
-        ChunkerBlock(),
         CustomMacedonianFilter(
             remove_citations=True,
             filter_no_terminal_punct=False,
@@ -374,163 +291,32 @@ def build_stage1_pipeline(input_path: str, stage1_output: str):
             languages=["mk"],
         ),
         TokensCounter(),
-        JsonlWriter(output_folder=stage1_output, output_filename="stage1_output.jsonl.gz"),
+        JsonlWriter(output_folder=stage1_output),
+        SentenceDedupSignature(output_folder=signatures_output, config=sent_dedup_config, finder_workers=FINDER_WORKERS),
     ]
-    return pipeline
 
+    pipeline_2 = [SentenceFindDedups(data_folder=signatures_output, output_folder=dedup_output, config=sent_dedup_config)]
 
-def build_stage2_pipeline(stage1_output: str, signatures_output: str, minhash_conf: MinhashConfig):
-    pipeline = [
+    pipeline_3 = [
         JsonlReader(
             data_folder=stage1_output,
             text_key="text",
             id_key=None,
-            compression="gzip",
             glob_pattern="*.gz",
         ),
-        MinhashDedupSignature(output_folder=signatures_output, config=minhash_conf),
-    ]
-    return pipeline
-
-
-def build_stage3_pipeline(signatures_output: str, buckets_output: str, minhash_conf: MinhashConfig):
-    pipeline = [
-        MinhashDedupBuckets(
-            input_folder=signatures_output,
-            config=minhash_conf,
-            output_folder=buckets_output,
-        ),
-    ]
-    return pipeline
-
-def build_stage4_pipeline(buckets_output: str, clusters_output: str, minhash_conf: MinhashConfig):
-    pipeline = [
-        MinhashDedupCluster(
-            input_folder=buckets_output,
-            output_folder=clusters_output,
-            config=minhash_conf,
-        ),
-    ]
-    return pipeline
-
-def build_stage5_pipeline(clusters_output: str, dedup_output: str):
-    pipeline = [
-        KeepFineWebMinhashDedupFilter(input_folder=clusters_output),
-        JsonlWriter(output_folder=dedup_output, output_filename="deduped_output.jsonl.gz"),
-    ]
-    return pipeline
-
-def build_stage6_pipeline(dedup_output: str, final_output: str):
-    pipeline = [
-        JsonlReader(
-            data_folder=dedup_output,
-            text_key="text",
-            id_key=None,
-            compression="gzip",
-            glob_pattern="*.gz",
-        ),
-        TokensCounter(),
+        SentenceDedupFilter(data_folder=dedup_output, config=sent_dedup_config),
         PIIFormatter(),
-        JsonlWriter(output_folder=final_output, output_filename="final.jsonl.gz"),
+        JsonlWriter(output_folder=final_output),
     ]
-    return pipeline
 
-# -------------------------------------------------------------
-#  F) MAIN
-# -------------------------------------------------------------
-def main():
-    input_path = "split_data/"
-    output_base = "macedonian-corpus-cleaned"
-    
-    # Define intermediate folders
-    stage1_output = os.path.join(output_base, "stage1")
-    signatures_output = os.path.join(output_base, "signatures")
-    buckets_output = os.path.join(output_base, "buckets")
-    clusters_output = os.path.join(output_base, "clusters")
-    dedup_output = os.path.join(output_base, "deduped")
-    final_output = os.path.join(output_base, "final")
-    
-    # Ensure output directories exist
-    os.makedirs(stage1_output, exist_ok=True)
-    os.makedirs(signatures_output, exist_ok=True)
-    os.makedirs(buckets_output, exist_ok=True)
-    os.makedirs(clusters_output, exist_ok=True)
-    os.makedirs(dedup_output, exist_ok=True)
-    os.makedirs(final_output, exist_ok=True)
-    
-    minhash_conf = get_minhash_config()
-    
-    # Stage 1
-    logging.info("Starting Stage 1: Data Reading and Initial Processing")
-    stage1_pipeline = build_stage1_pipeline(input_path, stage1_output)
-    executor1 = LocalPipelineExecutor(
-        pipeline=stage1_pipeline,
-        tasks=len(os.listdir(input_path)),  
-        workers=50, 
-        logging_dir=os.path.join(output_base, "logs", "stage1"),
-    )
-    executor1.run()
-    logging.info("Stage 1 completed.")
-    
-    # Stage 2
-    logging.info("Starting Stage 2: Minhash Signature Generation")
-    stage2_pipeline = build_stage2_pipeline(stage1_output, signatures_output, minhash_conf)
-    executor2 = LocalPipelineExecutor(
-        pipeline=stage2_pipeline,
-        tasks=16,  # Number of buckets
-        workers=50,
-        logging_dir=os.path.join(output_base, "logs", "stage2"),
-    )
-    executor2.run()
-    logging.info("Stage 2 completed.")
-    
-    # Stage 3
-    logging.info("Starting Stage 3: Bucketing")
-    stage3_pipeline = build_stage3_pipeline(signatures_output, buckets_output, minhash_conf)
-    executor3 = LocalPipelineExecutor(
-        pipeline=stage3_pipeline,
-        tasks=16,  # Number of buckets
-        workers=50,
-        logging_dir=os.path.join(output_base, "logs", "stage3"),
-    )
-    executor3.run()
-    logging.info("Stage 3 completed.")
-    
-    # Stage 4
-    logging.info("Starting Stage 4: Clustering")
-    stage4_pipeline = build_stage4_pipeline(buckets_output, clusters_output, minhash_conf)
-    executor4 = LocalPipelineExecutor(
-        pipeline=stage4_pipeline,
-        tasks=1,  
-        workers=1,
-        logging_dir=os.path.join(output_base, "logs", "stage4"),
-    )
-    executor4.run()
-    logging.info("Stage 4 completed.")
-    
-    # Stage 5
-    logging.info("Starting Stage 5: Deduplication Filtering")
-    stage5_pipeline = build_stage5_pipeline(clusters_output, dedup_output)
-    executor5 = LocalPipelineExecutor(
-        pipeline=stage5_pipeline,
-        tasks=1, 
-        workers=1,
-        logging_dir=os.path.join(output_base, "logs", "stage5"),
-    )
-    executor5.run()
-    logging.info("Stage 5 completed.")
-    
-    # Stage 6
-    logging.info("Starting Stage 6: Post-Processing")
-    stage6_pipeline = build_stage6_pipeline(dedup_output, final_output)
-    executor6 = LocalPipelineExecutor(
-        pipeline=stage6_pipeline,
-        tasks=len(os.listdir(dedup_output)), 
-        workers=50,
-        logging_dir=os.path.join(output_base, "logs", "stage6"),
-    )
-    executor6.run()
-    logging.info("Stage 6 completed.")
+    # workers is set at 50, but you can reduce to match your machine's capacity 
+    executor_1: PipelineExecutor = LocalPipelineExecutor(pipeline=pipeline_1, workers=50, tasks=len(os.listdir(input_path)))
+    executor_2: PipelineExecutor = LocalPipelineExecutor(pipeline=pipeline_2, workers=1, tasks=FINDER_WORKERS)
+    executor_3: PipelineExecutor = LocalPipelineExecutor(pipeline=pipeline_3, workers=50, tasks=len(os.listdir(stage1_output)))
+
+    print(executor_1.run())
+    print(executor_2.run())
+    print(executor_3.run())
     
     print(f"Done. Cleaned data is in: {final_output}/")
 
