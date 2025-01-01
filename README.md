@@ -28,6 +28,9 @@ This folder contains the primary scripts for downloading, filtering, and prepari
   - **Purpose:** Evaluates the outputs of language detection models.
   - **Usage:** Useful for testing the language filtering logic.
 
+- **👥 `dedup/minhash.py`**
+  - **Purpose:** Second stage deduplication. 
+
 ---
 
 ### **2. `process_data/`**
