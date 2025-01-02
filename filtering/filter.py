@@ -1,4 +1,4 @@
-""" To use this script it is first advisable to split the .jsonl files into smaller chunks for multiprocessing. """
+""" To use this script it is first advisable to split the .jsonl file into smaller chunks for multiprocessing. A lot of memory might be needed to run this script. """
 
 import re
 import os 
