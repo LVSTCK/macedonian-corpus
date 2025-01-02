@@ -33,13 +33,6 @@ POLICY_SUBSTRINGS = [
     "use cookies",
 ]
 BULLET_CHARS = ("-", "•", "*", "‣", "·") 
-
-sent_dedup_config = SentDedupConfig(
-    n_sentences=3,
-    split_sentences=True,  # set to False to split on \n instead
-    only_dedup_in_index=True,
-    min_doc_words=20,
-)
 FINDER_WORKERS = 10  # this will speed up/parallelize step 2
 
 # -------------------------------------------------------------
@@ -166,8 +159,8 @@ class CustomMacedonianFilter(BaseFilter):
                 self.stat_update("line-filter-javascript")
                 continue
 
-            # if self.filter_curly_bracket and "{" in line:
-            #     return False, "curly_bracket"
+            if self.filter_curly_bracket and "{" in line:
+                return False, "curly_bracket"
 
             # 6) cookies / policy substrings (line-level remove)
             if any(p in line_lower for p in POLICY_SUBSTRINGS):
@@ -179,6 +172,24 @@ class CustomMacedonianFilter(BaseFilter):
                 bullet_starts += 1
             if line.endswith(ELLIPSIS):
                 ellipsis_ends += 1
+            
+            # 8) Because of the consolidation in data, especially important for MMORE 
+            # check if doc is mmore 
+            if doc.metadata.get("source") == "MMORE":
+                sh_count = line.count("Ш")
+                gj_count = line.count("Ѓ")
+                kj_count = line.count("Ќ")
+                if sh_count > 5 or gj_count > 5 or kj_count > 5:
+                    self.stat_update("line-filter-sh-gj")
+                    continue
+                elif sh_count + gj_count + kj_count > 5:
+                    self.stat_update("line-filter-sh-gj")
+                    continue
+            
+            if "њњњ.себ.ее" in line:
+                self.stat_update("line-filter-њњњ.себ.ее")
+                continue
+
 
             # keep line
             kept_lines.append(line)
@@ -264,7 +275,7 @@ def main():
         n_sentences=3,
         split_sentences=True,  # set to False to split on \n instead
         only_dedup_in_index=True,
-        min_doc_words=20,
+        min_doc_words=50,
     )
 
     pipeline_1 = [
@@ -283,7 +294,7 @@ def main():
             max_word_length=1000,
             filter_lorem_ipsum=True,
             filter_javascript=True,
-            filter_curly_bracket=False,
+            filter_curly_bracket=True,
             min_alpha_word_ratio=0.80,
             bullet_start_ratio_threshold=0.90,
             ellipsis_end_ratio_threshold=0.30,
@@ -309,14 +320,42 @@ def main():
         JsonlWriter(output_folder=final_output),
     ]
 
-    # workers is set at 50, but you can reduce to match your machine's capacity 
-    executor_1: PipelineExecutor = LocalPipelineExecutor(pipeline=pipeline_1, workers=50, tasks=len(os.listdir(input_path)))
-    executor_2: PipelineExecutor = LocalPipelineExecutor(pipeline=pipeline_2, workers=1, tasks=FINDER_WORKERS)
-    executor_3: PipelineExecutor = LocalPipelineExecutor(pipeline=pipeline_3, workers=50, tasks=len(os.listdir(stage1_output)))
+    try:
+        print("Running Pipeline 1")
+        executor_1: PipelineExecutor = LocalPipelineExecutor(
+            pipeline=pipeline_1, workers=15, tasks=len(os.listdir(input_path))
+        )
+        print(executor_1.run())
+    except MemoryError as e:
+        print("OOM Error during Pipeline 1. Task failed:", str(e))
+        # Optionally, retry with lower workers
+        executor_1: PipelineExecutor = LocalPipelineExecutor(
+            pipeline=pipeline_1, workers=5, tasks=len(os.listdir(input_path))
+        )
+        print("Retrying Pipeline 1 with reduced workers...")
+        print(executor_1.run())
+    except Exception as e:
+        print("Error during Pipeline 1:", str(e))
 
-    print(executor_1.run())
-    print(executor_2.run())
-    print(executor_3.run())
+    try:
+        print("Running Pipeline 2")
+        executor_2: PipelineExecutor = LocalPipelineExecutor(pipeline=pipeline_2, workers=1)
+        print(executor_2.run())
+    except MemoryError as e:
+        print("OOM Error during Pipeline 2. Task failed:", str(e))
+    except Exception as e:
+        print("Error during Pipeline 2:", str(e))
+
+    try:
+        print("Running Pipeline 3")
+        executor_3: PipelineExecutor = LocalPipelineExecutor(
+            pipeline=pipeline_3, workers=15, tasks=len(os.listdir(stage1_output))
+        )
+        print(executor_3.run())
+    except MemoryError as e:
+        print("OOM Error during Pipeline 3. Task failed:", str(e))
+    except Exception as e:
+        print("Error during Pipeline 3:", str(e))
     
     print(f"Done. Cleaned data is in: {final_output}/")
 
