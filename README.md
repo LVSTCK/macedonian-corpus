@@ -29,7 +29,7 @@ This folder contains the primary scripts for downloading, filtering, and prepari
   - **Usage:** Useful for testing the language filtering logic.
 
 - **👥 `dedup/minhash.py`**
-  - **Purpose:** Second stage deduplication. 
+  - **Purpose:** Second stage deduplication. (input: [cleaned](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-cleaned), output: [cleaned and deduplicated](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-cleaned-dedup) 
 
 ---
 
