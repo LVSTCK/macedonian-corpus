@@ -101,7 +101,3 @@ You can contribute to the Macedonian corpus by:
 3. **Encourage Institutional Participation**:  
    - We hope this initiative inspires institutions in Macedonia, such as libraries, universities, and research centers, to take part in the digitalization of Macedonian-language materials.  
    - The availability of such materials will enable the development of specialized software tailored to the needs of Macedonian speakers and researchers.
-
-
-## 📝 TODO:
-- Add `requirements.txt`
