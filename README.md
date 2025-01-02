@@ -56,15 +56,7 @@ This folder contains scripts for data collection through web scraping.
 
 ## 🗃️ Macedonian Corpus - Cleaned Version
 
-This repository contributes to the creation of the **Macedonian Corpus**, which aims to address the scarcity of high-quality Macedonian text data in NLP. The cleaned dataset applies heuristic filters to ensure the quality of the text. 
-
-### Features of the Cleaned Dataset:
-- **Language Coverage:** High-confidence Macedonian text.
-- **Data Quality:** Removal of irrelevant, incomplete, or low-quality content.
-- **Deduplication:** Elimination of duplicate sentences.
-- **PII Removal:** Ensures privacy and compliance with ethical standards.
-
-For more details, refer to the [HuggingFace README](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-raw).
+This repository contributes to the creation of the **Macedonian Corpus**, which aims to address the scarcity of high-quality Macedonian text data in NLP. The cleaned dataset applies heuristic filters and deduplication to ensure the quality of the text. 
 
 ---
 
