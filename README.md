@@ -83,6 +83,11 @@ This repository contributes to the creation of the **Macedonian Corpus**, which 
    - Execute `filter.py` to produce the cleaned version of the dataset. Optionally, use `split_data/` for multiprocessing if handling large files. NOTE: Significant computational resources might be needed for this step, depending on number of workers and tasks chosen.  
    - You can modify the filtering according to your own needs (e.g. swap sentence deduplication with min hash deduplication). For more information see [datatrove](https://github.com/huggingface/datatrove). 
 
+### macedonian-corpus-cleaned-deduplicated:
+
+1. **Run MinHash Deduplication**:
+   - Use your cleaned version of the dataset (or download it from HuggingFace) and just run `minhash.py` to reproduce the deduplicated version of the dataset (MinHashConfig can be changed according to needs). 
+
 ## How to Contribute?
 You can contribute to the Macedonian corpus by:
 
