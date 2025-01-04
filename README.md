@@ -7,10 +7,10 @@ This repository contains scripts, notebooks, and documentation to process, clean
 ## Overview
 
 ### **1. `filtering/`**
-This folder contains the primary scripts for downloading, filtering, and preparing the clean version  of corpus (input: [raw corpus](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-raw), output: [cleaned corpus](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-cleaned). 
+This folder contains the primary scripts for downloading, filtering, and preparing the clean version  of corpus input: [raw corpus](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-raw), output: [cleaned corpus](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-cleaned). 
 
 - **🧹 `filter.py`**
-  - **Purpose:** Produces a cleaned version of the dataset (filtering process inspired by fineweb-2).
+  - **Purpose:** Produces a cleaned version of the dataset (filtering process inspired by [fineweb-2](https://github.com/huggingface/fineweb-2)).
   - **Features:**
     - C4-like filtering (removing irrelevant lines, low-quality text, and placeholder content).
     - Gopher-like filtering (handling incomplete or overly repetitive documents).
