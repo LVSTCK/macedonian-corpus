@@ -4,7 +4,7 @@ This repository contains scripts, notebooks, and documentation to process, clean
 
 ---
 
-## Key Highlights
+## 🌟 Key Highlights
 - 📚 **First consolidated Macedonian Corpus** for NLP research.
 - 📊 Includes **3 versions** of the corpus:
   - [**Raw**](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-raw): 37.6 GB, 3.53 billion words.
@@ -48,7 +48,7 @@ This repository contains scripts, notebooks, and documentation to process, clean
 | Common Voice         | 0.02      | 0.002     | 0.12%      |
 | **Total**            | **16.78** | **1.47**  | **100.00%** |
 
-## Dataset Sources
+## 📚 Dataset Sources
 The corpus is built by collecting and processing data from the following sources:
 
 | **Source**                           | **Notes**                                                       | **Origin**                                                              |
@@ -68,7 +68,7 @@ The corpus is built by collecting and processing data from the following sources
 | Institute of Macedonian Language     | Resources from the Institute of Macedonian Language "Krste Misirkov" | [IMJ](http://imj.ukim.edu.mk/)                                          |
 | Official PE Gazette of North Macedonia | Official Gazette of North Macedonia                             | [slvesnik](https://www.slvesnik.com.mk/besplaten-pristap-do-izdanija.nspx) |
 
-## Overview
+## 📋 Overview
 
 ### **1. `filtering/`**
 This folder contains the primary scripts for downloading, filtering, and preparing the clean version  of corpus input: [raw corpus](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-raw), output: [cleaned corpus](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-cleaned). 
@@ -152,7 +152,7 @@ This repository contributes to the creation of the **Macedonian Corpus**, which 
 1. **Run MinHash Deduplication**:
    - Use your cleaned version of the dataset (or download it from HuggingFace) and just run `minhash.py` to reproduce the deduplicated version of the dataset (MinHashConfig can be changed according to needs). 
 
-## How to Contribute?
+## 🤝 How to Contribute?
 You can contribute to the Macedonian corpus by:
 
 1. **Digitalize Books and Materials**:  
