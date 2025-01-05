@@ -13,6 +13,10 @@ This repository contains scripts, notebooks, and documentation to process, clean
 - 🚀 Enables pretraining/fine-tuning LLMs, machine translation, and linguistic analysis.
 - 🛠️ Built with state-of-the-art filtering and deduplication techniques.
 
+<br>
+
+[![License: CC BY 2.5](https://img.shields.io/badge/License-CC_BY_2.5-lightgrey.svg)](https://creativecommons.org/licenses/by/2.5/)
+
 #### **Raw**
 | Origin                | Size (GB) | Words (B) | Percentage |
 |-----------------------|-----------|-----------|------------|
@@ -165,3 +169,6 @@ You can contribute to the Macedonian corpus by:
 3. **Encourage Institutional Participation**:  
    - We hope this initiative inspires institutions in Macedonia, such as libraries, universities, and research centers, to take part in the digitalization of Macedonian-language materials.  
    - The availability of such materials will enable the development of specialized software tailored to the needs of Macedonian speakers and researchers.
+
+## License ⚖️
+The dataset is distributed under the **Creative Commons Attribution 2.5 (CC BY 2.5) license**. This license was selected after a manual review of the collected data to ensure compliance with the terms and conditions of the various data sources included in the corpus. Given that this corpus is a union of multiple publicly available resources, some with specific restrictions, we cannot adopt a more permissive license (e.g., CC0 or public domain) until we have verified compliance with all source licenses and permissions.
