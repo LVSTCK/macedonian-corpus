@@ -172,7 +172,7 @@ For inquiries, feedback, or contributions, please feel free to reach out to the 
 
 - [Stefan Krsteski](https://www.linkedin.com/in/stefan-krsteski-136abb235/) [📧](mailto:stefan.krsteski@gmail.com)
 - [Borjan Sazdov](https://www.linkedin.com/in/borjan-sazdov-4b2187211/) [📧](mailto:borjansazdov@yahoo.com)
-- [Matea Tashkovska](https://www.linkedin.com/in/matea-tashkovska-774603198/) [📧](mailto:example@email.com)
+- [Matea Tashkovska](https://www.linkedin.com/in/matea-tashkovska-774603198/) [📧](mailto:matea_tas@yahoo.com)
 
 ### 🎉 Special Thanks
 Also a big thank you to the following individuals:
