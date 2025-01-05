@@ -165,3 +165,17 @@ You can contribute to the Macedonian corpus by:
 3. **Encourage Institutional Participation**:  
    - We hope this initiative inspires institutions in Macedonia, such as libraries, universities, and research centers, to take part in the digitalization of Macedonian-language materials.  
    - The availability of such materials will enable the development of specialized software tailored to the needs of Macedonian speakers and researchers.
+
+## 📬 Contact
+
+For inquiries, feedback, or contributions, please feel free to reach out to the core team:
+
+- [Stefan Krsteski](https://www.linkedin.com/in/stefan-krsteski-136abb235/) [📧](mailto:stefan.krsteski@gmail.com)
+- [Borjan Sazdov](https://www.linkedin.com/in/borjan-sazdov-4b2187211/) [📧](mailto:borjansazdov@yahoo.com)
+- [Matea Tashkovska](https://www.linkedin.com/in/matea-tashkovska-774603198/) [📧](mailto:example@email.com)
+
+### 🎉 Special Thanks
+Also a big thank you to the following individuals:
+
+- [Said Gürbüz](https://www.linkedin.com/in/saidgurbuz/?originalSubdomain=tr)
+- [Vinko Sabolcec](https://huggingface.co/vsabolcec)
