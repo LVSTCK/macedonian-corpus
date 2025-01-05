@@ -1,4 +1,4 @@
-# 🇲🇰 Macedonian Corpus
+# Macedonian Corpus 🇲🇰
 
 This repository contains scripts, notebooks, and documentation to process, clean, and manage the [Macedonian Corpus Raw](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-raw). 
 
@@ -7,9 +7,9 @@ This repository contains scripts, notebooks, and documentation to process, clean
 ## Key Highlights
 - 📚 **First consolidated Macedonian Corpus** for NLP research.
 - 📊 Includes **3 versions** of the corpus:
-  - **Raw**: 37.6 GB, 3.53 billion words.
-  - **Cleaned**: 35.5 GB, 3.31 billion words (filtered for quality).
-  - **Cleaned + Deduplicated**: 16.78 GB, 1.47 billion words (high-quality, minimal redundancy).
+  - [**Raw**](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-raw): 37.6 GB, 3.53 billion words.
+  - [**Cleaned**](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-cleaned): 35.5 GB, 3.31 billion words (filtered for quality).
+  - [**Cleaned + Deduplicated**](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-cleaned-dedup): 16.78 GB, 1.47 billion words (high-quality, minimal redundancy).
 - 🚀 Enables pretraining/fine-tuning LLMs, machine translation, and linguistic analysis.
 - 🛠️ Built with state-of-the-art filtering and deduplication techniques.
 
