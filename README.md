@@ -116,8 +116,6 @@ This folder contains scripts for data collection through web scraping.
   - **Purpose:** Scrapes text from PDFs.
   - **Usage:** The extracted content is processed through [MMORE](https://github.com/swiss-ai/mmore) and included in both the raw and cleaned datasets, with field 'source' == MMORE. 
 
----cleaned
-
 ## 🗃️ Macedonian Corpus - Cleaned Version
 
 This repository contributes to the creation of the **Macedonian Corpus**, which aims to address the scarcity of high-quality Macedonian text data in NLP. The cleaned dataset applies heuristic filters and deduplication to ensure the quality of the text (NOTE: you have to download the data yourself, the links can be found in the [HuggingFace repo](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-raw) under Data Sources).
