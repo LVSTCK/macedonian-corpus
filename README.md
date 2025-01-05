@@ -11,7 +11,7 @@ This repository contains scripts, notebooks, and documentation to process, clean
   - **Cleaned**: 35.5 GB, 3.31 billion words (filtered for quality).
   - **Cleaned + Deduplicated**: 16.78 GB, 1.47 billion words (high-quality, minimal redundancy).
 - 🚀 Enables pretraining/fine-tuning LLMs, machine translation, and linguistic analysis.
-- 🛠️ Built with state-of-the-art filtering and deduplication techniques (e.g., [datatrove](https://github.com/huggingface/datatrove)).
+- 🛠️ Built with state-of-the-art filtering and deduplication techniques.
 
 #### **Raw**
 | Origin                | Size (GB) | Words (B) | Percentage |
