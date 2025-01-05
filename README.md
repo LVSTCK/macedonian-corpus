@@ -4,7 +4,7 @@ This repository contains scripts, notebooks, and documentation to process, clean
 
 ---
 
-## 🔑 Key Highlights
+## Key Highlights
 - 📚 **First consolidated Macedonian Corpus** for NLP research.
 - 📊 Includes **3 versions** of the corpus:
   - **Raw**: 37.6 GB, 3.53 billion words.
@@ -47,6 +47,26 @@ This repository contains scripts, notebooks, and documentation to process, clean
 | Other (MMORE)        | 0.04      | 0.004     | 0.25%      |
 | Common Voice         | 0.02      | 0.002     | 0.12%      |
 | **Total**            | **16.78** | **1.47**  | **100.00%** |
+
+## Dataset Sources
+The corpus is built by collecting and processing data from the following sources:
+
+| **Source**                           | **Notes**                                                       | **Origin**                                                              |
+|--------------------------------------|-----------------------------------------------------------------|-----------------------------------------------------------------------|
+| UKIM                                 | Books and dissertations from various topics                    | [UKIM Digital Library](https://ukim.edu.mk/en/nauka/infrastruktura/digitalna-biblioteka/), [UKIM Repository](https://repository.ukim.mk/) |
+| Wikipedia (MK)                            | Macedonian Wikipedia dump                                       | [Wikipedia](https://mk.wikipedia.org)                                   |
+| MANU                                 | Various publications from MANU                                  | [MANU](https://manu.edu.mk/)                                            |
+| Institute for Macedonian Literature                        | E-library of the Institute for Macedonian Literature            | [E-biblioteka](https://e-biblioteka.mk/)                                |
+| HuggingFace (fineweb-2)                            | Macedonian subset of FineWeb-2 (mkd_Cyrl)                       | [Hugging Face](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) |
+| Common Voice (MK)                        | Macedonian sentences from the Common Voice dataset              | [Common Voice](https://commonvoice.mozilla.org/en)                      |
+| CLARIN MaCoCu-mk 2.0                  | Web-crawled Macedonian texts                                    | [CLARIN](https://www.clarin.si/repository/xmlui/handle/11356/1801)      |
+| Pollitecon (~90 books)               | Free eBooks on Macedonian themes by various publishers          | [Pollitecon](https://www.pollitecon.com/)                               |
+| UKLO                                 | Resources from UKLO                                             | [UKLO](https://uklo.edu.mk/?lang=en)                                    |
+| UGD                                  | Resources from UGD                                              | [UGD](https://www.ugd.edu.mk/en/home/)                                  |
+| SETimes Corpus (MK-EN)               | Macedonian-English parallel corpus (only MK sentences used)     | [SETimes](https://github.com/stefan-it/nmt-en-mk?tab=readme-ov-file)    |
+| HPLT (MK)                            | Macedonian subset of HPLT                                       | [HPLT](https://hplt-project.org/datasets/v2.0)                          |
+| Institute of Macedonian Language     | Resources from the Institute of Macedonian Language "Krste Misirkov" | [IMJ](http://imj.ukim.edu.mk/)                                          |
+| Official PE Gazette of North Macedonia | Official Gazette of North Macedonia                             | [slvesnik](https://www.slvesnik.com.mk/besplaten-pristap-do-izdanija.nspx) |
 
 ## Overview
 
