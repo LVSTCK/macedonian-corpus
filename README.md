@@ -4,6 +4,50 @@ This repository contains scripts, notebooks, and documentation to process, clean
 
 ---
 
+## 🔑 Key Highlights
+- 📚 **First consolidated Macedonian Corpus** for NLP research.
+- 📊 Includes **3 versions** of the corpus:
+  - **Raw**: 37.6 GB, 3.53 billion words.
+  - **Cleaned**: 35.5 GB, 3.31 billion words (filtered for quality).
+  - **Cleaned + Deduplicated**: 16.78 GB, 1.47 billion words (high-quality, minimal redundancy).
+- 🚀 Enables pretraining/fine-tuning LLMs, machine translation, and linguistic analysis.
+- 🛠️ Built with state-of-the-art filtering and deduplication techniques (e.g., [datatrove](https://github.com/huggingface/datatrove)).
+
+#### **Raw**
+| Origin                | Size (GB) | Words (B) | Percentage |
+|-----------------------|-----------|-----------|------------|
+| HPLT                 | 15.85     | 1.49      | 42.21%     |
+| HuggingFace (fineweb-2) | 14.21     | 1.33      | 37.66%     |
+| CLARIN (MaCoCu-mk 2.0) | 5.20      | 0.49      | 13.92%     |
+| Wikipedia            | 0.78      | 0.07      | 1.96%      |
+| Other (MMORE)        | 1.48      | 0.14      | 4.07%      |
+| Common Voice         | 0.02      | 0.0018    | 0.05%      |
+| SETimes Corpus       | 0.06      | 0.0044    | 0.13%      |
+| **Total**            | **37.60** | **3.53**  | **100.00%** |
+
+#### **Cleaned**
+| Origin                | Size (GB) | Words (B) | Percentage |
+|-----------------------|-----------|-----------|------------|
+| HPLT                 | 15.51     | 1.45      | 43.72%     |
+| HuggingFace (fineweb-2) | 14.13     | 1.31      | 39.62%     |
+| CLARIN (MaCoCu-mk 2.0) | 5.14      | 0.48      | 14.57%     |
+| Wikipedia            | 0.64      | 0.06      | 1.78%      |
+| Other (MMORE)        | 0.04      | 0.004     | 0.12%      |
+| Common Voice         | 0.02      | 0.002     | 0.05%      |
+| SETimes Corpus       | 0.06      | 0.004     | 0.13%      |
+| **Total**            | **35.54** | **3.31**  | **100.00%** |
+
+#### **Cleaned + Deduplicated**
+| Origin                | Size (GB) | Words (B) | Percentage |
+|-----------------------|-----------|-----------|------------|
+| HuggingFace (fineweb-2) | 7.85      | 0.73      | 49.55%     |
+| HPLT                 | 5.80      | 0.54      | 36.87%     |
+| CLARIN (MaCoCu-mk 2.0) | 1.94      | 0.18      | 12.39%     |
+| Wikipedia            | 0.13      | 0.01      | 0.83%      |
+| Other (MMORE)        | 0.04      | 0.004     | 0.25%      |
+| Common Voice         | 0.02      | 0.002     | 0.12%      |
+| **Total**            | **16.78** | **1.47**  | **100.00%** |
+
 ## Overview
 
 ### **1. `filtering/`**
