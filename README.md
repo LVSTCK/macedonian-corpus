@@ -15,8 +15,6 @@ This repository contains scripts, notebooks, and documentation to process, clean
 
 <br>
 
-[![License: CC BY 2.5](https://img.shields.io/badge/License-CC_BY_2.5-lightgrey.svg)](https://creativecommons.org/licenses/by/2.5/)
-
 #### **Raw**
 | Origin                | Size (GB) | Words (B) | Percentage |
 |-----------------------|-----------|-----------|------------|
