@@ -13,8 +13,6 @@ This repository contains scripts, notebooks, and documentation to process, clean
 - 🚀 Enables pretraining/fine-tuning LLMs, machine translation, and linguistic analysis.
 - 🛠️ Built with state-of-the-art filtering and deduplication techniques.
 
-<br>
-
 #### **Raw**
 | Origin                | Size (GB) | Words (B) | Percentage |
 |-----------------------|-----------|-----------|------------|
