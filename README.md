@@ -124,7 +124,7 @@ This repository contributes to the creation of the **Macedonian Corpus**, which 
 
 ---
 
-## How to Use
+## How to Reproduce
 
 ### macedonian-corpus-raw:
 
