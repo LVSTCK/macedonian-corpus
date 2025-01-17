@@ -56,7 +56,6 @@ The corpus is built by collecting and processing data from the following sources
 | UKIM                                 | Books and dissertations from various topics                    | [UKIM Digital Library](https://ukim.edu.mk/en/nauka/infrastruktura/digitalna-biblioteka/), [UKIM Repository](https://repository.ukim.mk/) |
 | Wikipedia (MK)                            | Macedonian Wikipedia dump                                       | [Wikipedia](https://mk.wikipedia.org)                                   |
 | MANU                                 | Various publications from MANU                                  | [MANU](https://manu.edu.mk/)                                            |
-| Institute for Macedonian Literature                        | E-library of the Institute for Macedonian Literature            | [E-biblioteka](https://e-biblioteka.mk/)                                |
 | HuggingFace (fineweb-2)                            | Macedonian subset of FineWeb-2 (mkd_Cyrl)                       | [Hugging Face](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) |
 | Common Voice (MK)                        | Macedonian sentences from the Common Voice dataset              | [Common Voice](https://commonvoice.mozilla.org/en)                      |
 | CLARIN MaCoCu-mk 2.0                  | Web-crawled Macedonian texts                                    | [CLARIN](https://www.clarin.si/repository/xmlui/handle/11356/1801)      |
