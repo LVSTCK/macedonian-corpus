@@ -69,7 +69,7 @@ The corpus is built by collecting and processing data from the following sources
 
 ## 📋 Overview
 
-### **1. `filtering/`**
+### **1. [`filtering/`](https://github.com/LVSTCK/macedonian-corpus/tree/main/filtering)**
 This folder contains the primary scripts for downloading, filtering, and preparing the clean version  of corpus input: [raw corpus](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-raw), output: [cleaned corpus](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-cleaned). 
 
 - **🧹 `filter.py`**
@@ -96,7 +96,7 @@ This folder contains the primary scripts for downloading, filtering, and prepari
 
 ---
 
-### **2. `process_data/`**
+### **2. [`process_data/`](https://github.com/LVSTCK/macedonian-corpus/tree/main/process_data)**
 This folder contains notebooks used to process and unify various Macedonian text sources into the raw dataset.
 
 - **📄 `common_voice.ipynb`**
@@ -108,7 +108,7 @@ This folder contains notebooks used to process and unify various Macedonian text
 
 ---
 
-### **3. `scraping/`**
+### **3. [`scraping/`](https://github.com/LVSTCK/macedonian-corpus/tree/main/scraping)**
 This folder contains scripts for data collection through web scraping.
 
 - **🖋️ `scrape_pdfs.py`**
@@ -147,7 +147,7 @@ This repository contributes to the creation of the **Macedonian Corpus**, which 
 ### [macedonian-corpus-cleaned-dedup](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-cleaned-dedup):
 
 1. **Run MinHash Deduplication**:
-   - Use your cleaned version of the dataset (or download it from HuggingFace) and just run `minhash.py` to reproduce the deduplicated version of the dataset (MinHashConfig can be changed according to needs). 
+   - Use your cleaned version of the dataset (or [download](https://huggingface.co/datasets/LVSTCK/macedonian-corpus-cleaned) it from HuggingFace) and just run `minhash.py` to reproduce the deduplicated version of the dataset (MinHashConfig can be changed according to needs). 
 
 ## 🤝 How to Contribute?
 You can contribute to the Macedonian corpus by:
