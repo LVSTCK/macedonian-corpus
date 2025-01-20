@@ -59,7 +59,6 @@ The corpus is built by collecting and processing data from the following sources
 | HuggingFace (fineweb-2)                            | Macedonian subset of FineWeb-2 (mkd_Cyrl)                       | [Hugging Face](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) |
 | Common Voice (MK)                        | Macedonian sentences from the Common Voice dataset              | [Common Voice](https://commonvoice.mozilla.org/en)                      |
 | CLARIN MaCoCu-mk 2.0                  | Web-crawled Macedonian texts                                    | [CLARIN](https://www.clarin.si/repository/xmlui/handle/11356/1801)      |
-| Pollitecon (~90 books)               | Free eBooks on Macedonian themes by various publishers          | [Pollitecon](https://www.pollitecon.com/)                               |
 | UKLO                                 | Resources from UKLO                                             | [UKLO](https://uklo.edu.mk/?lang=en)                                    |
 | UGD                                  | Resources from UGD                                              | [UGD](https://www.ugd.edu.mk/en/home/)                                  |
 | SETimes Corpus (MK-EN)               | Macedonian-English parallel corpus (only MK sentences used)     | [SETimes](https://github.com/stefan-it/nmt-en-mk?tab=readme-ov-file)    |
