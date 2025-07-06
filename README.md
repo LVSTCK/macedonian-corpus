@@ -162,6 +162,16 @@ You can contribute to the Macedonian corpus by:
    - We hope this initiative inspires institutions in Macedonia, such as libraries, universities, and research centers, to take part in the digitalization of Macedonian-language materials.  
    - The availability of such materials will enable the development of specialized software tailored to the needs of Macedonian speakers and researchers.
 
+## Citation
+```
+@article{krsteski2025towards,
+  title={Towards Open Foundation Language Model and Corpus for Macedonian: A Low-Resource Language},
+  author={Krsteski, Stefan and Tashkovska, Matea and Sazdov, Borjan and Gjoreski, Hristijan and Gerazov, Branislav},
+  journal={arXiv preprint arXiv:2506.09560},
+  year={2025}
+}
+```
+
 ## 📬 Contact
 
 For inquiries, feedback, or contributions, please feel free to reach out to the core team:
